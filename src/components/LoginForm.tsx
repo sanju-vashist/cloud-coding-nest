@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 
 interface LoginFormProps {
@@ -12,7 +13,17 @@ interface LoginFormProps {
 const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check for saved credentials
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('webOS_rememberUsername');
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +42,14 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
           username: user.username,
           id: user.id
         }));
+        
+        // Handle "Remember me"
+        if (rememberMe) {
+          localStorage.setItem('webOS_rememberUsername', username);
+        } else {
+          localStorage.removeItem('webOS_rememberUsername');
+        }
+        
         onLogin(user.username);
         
         toast({
@@ -58,6 +77,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
+          className="dark:bg-gray-800"
         />
       </div>
       
@@ -70,7 +90,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
+          className="dark:bg-gray-800"
         />
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Checkbox 
+          id="remember" 
+          checked={rememberMe} 
+          onCheckedChange={(checked) => setRememberMe(checked === true)}
+        />
+        <Label htmlFor="remember" className="cursor-pointer text-sm">Remember me</Label>
       </div>
       
       <Button type="submit" className="w-full" disabled={isLoading}>

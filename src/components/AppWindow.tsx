@@ -46,10 +46,10 @@ const AppWindow: React.FC<AppWindowProps> = ({
     if (window.maximized) {
       // Store previous position and size for restoring later
       setPosition({ x: 0, y: 0 });
-      // Use window global object for innerWidth/innerHeight
+      // Use global window object for innerWidth/innerHeight
       setSize({ 
-        width: window.innerWidth || document.documentElement.clientWidth, 
-        height: window.innerHeight || document.documentElement.clientHeight 
+        width: global.window?.innerWidth || document.documentElement.clientWidth, 
+        height: global.window?.innerHeight || document.documentElement.clientHeight 
       });
     }
   }, [window.maximized]);
@@ -76,8 +76,8 @@ const AppWindow: React.FC<AppWindowProps> = ({
       const newY = e.clientY - dragOffset.y;
       
       // Constrain to viewport
-      const maxX = window.innerWidth - size.width;
-      const maxY = window.innerHeight - 40; // Leave space for taskbar
+      const maxX = global.window?.innerWidth - size.width || document.documentElement.clientWidth - size.width;
+      const maxY = global.window?.innerHeight - 40 || document.documentElement.clientHeight - 40; // Leave space for taskbar
       
       setPosition({
         x: Math.max(0, Math.min(newX, maxX)),
@@ -119,32 +119,34 @@ const AppWindow: React.FC<AppWindowProps> = ({
       }}
       onClick={onFocus}
     >
-      {/* Window Title Bar */}
+      {/* Window Title Bar - macOS style */}
       <div
-        className="flex items-center justify-between px-2 py-1 bg-gray-100 dark:bg-gray-700 cursor-move select-none"
+        className="flex items-center justify-between px-3 py-1.5 bg-gray-100 dark:bg-gray-700 cursor-move select-none"
         onMouseDown={handleMouseDown}
         onDoubleClick={onMaximize}
       >
-        <div className="text-sm font-medium truncate">{window.title}</div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1.5">
           <button
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
-            onClick={(e) => { e.stopPropagation(); onMinimize(); }}
-          >
-            <Minus className="w-3 h-3" />
-          </button>
-          <button
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"
-            onClick={(e) => { e.stopPropagation(); onMaximize(); }}
-          >
-            <Square className="w-3 h-3" />
-          </button>
-          <button
-            className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-red-500"
+            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center"
             onClick={(e) => { e.stopPropagation(); onClose(); }}
           >
-            <X className="w-3 h-3" />
+            <X className="w-2 h-2 text-red-800 opacity-0 group-hover:opacity-100" />
           </button>
+          <button
+            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center"
+            onClick={(e) => { e.stopPropagation(); onMinimize(); }}
+          >
+            <Minus className="w-2 h-2 text-yellow-800 opacity-0 group-hover:opacity-100" />
+          </button>
+          <button
+            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center"
+            onClick={(e) => { e.stopPropagation(); onMaximize(); }}
+          >
+            <Square className="w-2 h-2 text-green-800 opacity-0 group-hover:opacity-100" />
+          </button>
+        </div>
+        <div className="absolute inset-x-0 text-center">
+          <span className="text-sm font-medium truncate">{window.title}</span>
         </div>
       </div>
       
