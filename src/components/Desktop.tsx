@@ -73,7 +73,7 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
       window.id === id ? { ...window, minimized: !window.minimized } : window
     ));
     
-    if (window.id === activeWindowId) {
+    if (activeWindowId === id) {
       setActiveWindowId(null);
     }
   };

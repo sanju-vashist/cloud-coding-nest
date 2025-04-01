@@ -32,6 +32,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin }) => {
           id: user.id
         }));
         onLogin(user.username);
+        
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${user.username}!`,
+        });
       } else {
         toast({
           title: "Login failed",
