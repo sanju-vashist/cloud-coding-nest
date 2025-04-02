@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Trash, Edit, Save, Search, StickyNote } from 'lucide-react';
+import { Plus, Trash, Edit, Save, Search, StickyNote, Download, Upload } from 'lucide-react';
 
 interface NotesAppProps {
   userId: string;
@@ -102,6 +102,68 @@ const NotesApp: React.FC<NotesAppProps> = ({ userId }) => {
     });
   };
   
+  const exportNotes = () => {
+    try {
+      const dataStr = JSON.stringify(notes, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      
+      const exportFileDefaultName = `webos-notes-${new Date().toISOString().slice(0, 10)}.json`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      
+      toast({
+        title: "Notes exported",
+        description: "Your notes have been exported successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your notes",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const importNotes = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedNotes = JSON.parse(event.target?.result as string);
+        
+        if (Array.isArray(importedNotes) && importedNotes.every(note => 
+          typeof note.id === 'string' && 
+          typeof note.title === 'string' && 
+          typeof note.content === 'string' &&
+          typeof note.createdAt === 'string' &&
+          typeof note.updatedAt === 'string'
+        )) {
+          setNotes(importedNotes);
+          toast({
+            title: "Notes imported",
+            description: `Imported ${importedNotes.length} notes successfully`
+          });
+        } else {
+          throw new Error('Invalid format');
+        }
+      } catch (error) {
+        toast({
+          title: "Import failed",
+          description: "The selected file is not a valid notes backup",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    reader.readAsText(file);
+    e.target.value = ''; // Reset the input
+  };
+  
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
       year: 'numeric',
@@ -118,9 +180,24 @@ const NotesApp: React.FC<NotesAppProps> = ({ userId }) => {
       {/* Notes Header */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Notes</h2>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" /> New Note
-        </Button>
+        <div className="flex space-x-2">
+          <input 
+            type="file" 
+            id="import-notes" 
+            className="hidden" 
+            accept=".json" 
+            onChange={importNotes}
+          />
+          <Button variant="outline" size="sm" onClick={() => document.getElementById('import-notes')?.click()}>
+            <Upload className="h-4 w-4 mr-1" /> Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportNotes}>
+            <Download className="h-4 w-4 mr-1" /> Export
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-1" /> New Note
+          </Button>
+        </div>
       </div>
       
       {/* Search Bar */}
@@ -229,7 +306,7 @@ const NotesApp: React.FC<NotesAppProps> = ({ userId }) => {
                     className="w-full h-full p-2 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 ) : (
-                  <div className="whitespace-pre-wrap">{selectedNote.content}</div>
+                  <div className="whitespace-pre-wrap h-full overflow-y-auto">{selectedNote.content}</div>
                 )}
               </div>
               
