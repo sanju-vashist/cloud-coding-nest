@@ -5,10 +5,16 @@ import { Card } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@radix-ui/react-popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { File, Folder, Settings, Code, Terminal, LogOut, Menu } from "lucide-react";
+import { 
+  File, Folder, Settings, Code, Terminal, LogOut, Menu, 
+  Calendar, StickyNote, Clock, Battery, Wifi, Volume, 
+  Search, Bell, Moon, Sun
+} from "lucide-react";
 import FileExplorer from "@/components/FileExplorer";
 import CodeEditor from "@/components/CodeEditor";
 import TerminalEmulator from "@/components/TerminalEmulator";
+import CalendarApp from "@/components/CalendarApp";
+import NotesApp from "@/components/NotesApp";
 import AppWindow from "@/components/AppWindow";
 
 interface DesktopProps {
@@ -20,10 +26,32 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
   const [openWindows, setOpenWindows] = useState<any[]>([]);
   const [activeWindowId, setActiveWindowId] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('webOS_darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
   
   // Load user data from localStorage
   const userData = JSON.parse(localStorage.getItem('webOS_user') || '{}');
   const userId = userData.id;
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update time every minute
+    
+    return () => clearInterval(timer);
+  }, []);
+  
+  useEffect(() => {
+    localStorage.setItem('webOS_darkMode', JSON.stringify(isDarkMode));
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
   
   const openApp = (appType: string) => {
     const newWindow = {
@@ -47,17 +75,21 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
       case 'codeEditor': return 'Code Editor';
       case 'terminal': return 'Terminal';
       case 'settings': return 'Settings';
+      case 'calendar': return 'Calendar';
+      case 'notes': return 'Notes';
       default: return 'Application';
     }
   };
   
   const getDefaultSize = (appType: string) => {
     switch (appType) {
-      case 'fileExplorer': return { width: 600, height: 400 };
-      case 'codeEditor': return { width: 800, height: 500 };
-      case 'terminal': return { width: 600, height: 400 };
+      case 'fileExplorer': return { width: 700, height: 500 };
+      case 'codeEditor': return { width: 900, height: 600 };
+      case 'terminal': return { width: 700, height: 500 };
       case 'settings': return { width: 500, height: 400 };
-      default: return { width: 600, height: 400 };
+      case 'calendar': return { width: 800, height: 600 };
+      case 'notes': return { width: 800, height: 600 };
+      default: return { width: 700, height: 500 };
     }
   };
   
@@ -101,14 +133,41 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         return <CodeEditor userId={userId} />;
       case 'terminal':
         return <TerminalEmulator userId={userId} />;
+      case 'calendar':
+        return <CalendarApp userId={userId} />;
+      case 'notes':
+        return <NotesApp userId={userId} />;
       case 'settings':
         return (
           <div className="p-4">
             <h2 className="mb-4 text-lg font-semibold">Settings</h2>
             <div className="space-y-4">
-              <div>
+              <div className="flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center">
+                  {isDarkMode ? <Moon className="h-5 w-5 mr-2" /> : <Sun className="h-5 w-5 mr-2" />}
+                  <span>Dark Mode</span>
+                </div>
+                <Button 
+                  variant={isDarkMode ? "default" : "outline"} 
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                >
+                  {isDarkMode ? "On" : "Off"}
+                </Button>
+              </div>
+              
+              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <h3 className="font-medium mb-2">Account</h3>
                 <p className="mb-2">Username: {username}</p>
                 <Button variant="outline" onClick={onLogout}>Log Out</Button>
+              </div>
+              
+              <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <h3 className="font-medium mb-2">About WebOS</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Version 1.1.0<br />
+                  A web-based operating system experience<br />
+                  Running in your browser
+                </p>
               </div>
             </div>
           </div>
@@ -119,9 +178,13 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-blue-50 dark:bg-gray-900">
+    <div className={`relative w-full h-screen overflow-hidden bg-gradient-to-br ${
+      isDarkMode 
+        ? 'from-gray-900 to-gray-800' 
+        : 'from-blue-50 to-indigo-100'
+    }`}>
       {/* Desktop */}
-      <div className="absolute inset-0 p-4">
+      <div className="absolute inset-0 p-4 pt-8">
         {/* Windows */}
         {openWindows.map((window) => (
           <AppWindow
@@ -138,16 +201,16 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         ))}
       </div>
       
-      {/* Taskbar */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between h-12 px-4 bg-white/80 backdrop-blur-sm dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-2">
+      {/* Top Menu Bar - macOS style */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between h-7 px-4 bg-white/80 backdrop-blur-md dark:bg-black/60 border-b border-gray-200/50 dark:border-gray-700/50 z-50">
+        <div className="flex items-center space-x-4">
           <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Menu className="w-5 h-5" />
+              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
+                <Menu className="w-4 h-4" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 p-2 mt-1 bg-white rounded-lg shadow-lg dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <PopoverContent className="w-56 p-2 mt-1 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200/50 dark:border-gray-700/50">
               <div className="grid gap-1">
                 <Button variant="ghost" className="justify-start" onClick={() => openApp('fileExplorer')}>
                   <Folder className="w-4 h-4 mr-2" />
@@ -161,6 +224,14 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
                   <Terminal className="w-4 h-4 mr-2" />
                   Terminal
                 </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => openApp('calendar')}>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Calendar
+                </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => openApp('notes')}>
+                  <StickyNote className="w-4 h-4 mr-2" />
+                  Notes
+                </Button>
                 <Button variant="ghost" className="justify-start" onClick={() => openApp('settings')}>
                   <Settings className="w-4 h-4 mr-2" />
                   Settings
@@ -173,61 +244,82 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
               </div>
             </PopoverContent>
           </Popover>
-        </div>
-        
-        <div className="flex items-center space-x-1">
-          {openWindows.map((window) => (
-            <Button
-              key={window.id}
-              variant={activeWindowId === window.id ? "secondary" : "ghost"}
-              size="sm"
-              className="px-3 text-xs"
-              onClick={() => {
-                if (window.minimized) {
-                  minimizeWindow(window.id);
-                }
-                focusWindow(window.id);
-              }}
-            >
-              {window.title}
+          
+          <span className="text-sm font-medium">WebOS</span>
+          
+          <div className="hidden md:flex space-x-4">
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              File
             </Button>
-          ))}
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              Edit
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              View
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              Window
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              Help
+            </Button>
+          </div>
         </div>
         
-        <div className="flex items-center text-sm">
-          <span>{new Date().toLocaleTimeString()}</span>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Wifi className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+            <Battery className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+            <Volume className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+          </div>
+          
+          <span className="text-xs">
+            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
       </div>
       
-      {/* Desktop Icons */}
-      <div className="absolute top-4 left-4 grid grid-cols-1 gap-4">
-        <DesktopIcon icon={<Folder />} label="Files" onClick={() => openApp('fileExplorer')} />
-        <DesktopIcon icon={<Code />} label="Code" onClick={() => openApp('codeEditor')} />
-        <DesktopIcon icon={<Terminal />} label="Terminal" onClick={() => openApp('terminal')} />
-        <DesktopIcon icon={<Settings />} label="Settings" onClick={() => openApp('settings')} />
+      {/* Dock - macOS style */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center p-1 bg-white/20 backdrop-blur-lg dark:bg-black/30 rounded-2xl border border-white/30 dark:border-white/10 shadow-lg">
+        <DockIcon icon={<Folder />} label="Files" onClick={() => openApp('fileExplorer')} />
+        <DockIcon icon={<Code />} label="Code" onClick={() => openApp('codeEditor')} />
+        <DockIcon icon={<Terminal />} label="Terminal" onClick={() => openApp('terminal')} />
+        <DockIcon icon={<Calendar />} label="Calendar" onClick={() => openApp('calendar')} />
+        <DockIcon icon={<StickyNote />} label="Notes" onClick={() => openApp('notes')} />
+        <div className="h-8 w-px bg-gray-300/30 dark:bg-gray-600/30 mx-1"></div>
+        <DockIcon icon={<Settings />} label="Settings" onClick={() => openApp('settings')} />
       </div>
     </div>
   );
 };
 
-interface DesktopIconProps {
+interface DockIconProps {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
 }
 
-const DesktopIcon: React.FC<DesktopIconProps> = ({ icon, label, onClick }) => {
+const DockIcon: React.FC<DockIconProps> = ({ icon, label, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
   return (
-    <div 
-      className="flex flex-col items-center justify-center w-16 h-20 p-2 rounded-lg cursor-pointer group hover:bg-black/5 dark:hover:bg-white/5"
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-center w-10 h-10 mb-1 bg-white rounded-lg shadow-sm dark:bg-gray-800">
-        {icon}
+    <div className="relative group">
+      <div 
+        className="flex items-center justify-center w-12 h-12 rounded-xl mx-1 bg-white/10 backdrop-blur-lg dark:bg-white/5 border border-white/20 shadow-lg transition-all duration-200 hover:scale-110 hover:bg-white/20 dark:hover:bg-white/10"
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="text-gray-800 dark:text-gray-200">
+          {icon}
+        </div>
       </div>
-      <span className="text-xs text-center text-gray-800 dark:text-gray-200 group-hover:text-black dark:group-hover:text-white">
-        {label}
-      </span>
+      
+      {isHovered && (
+        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-gray-800/90 dark:bg-gray-900/90 text-white text-xs rounded whitespace-nowrap">
+          {label}
+        </div>
+      )}
     </div>
   );
 };
