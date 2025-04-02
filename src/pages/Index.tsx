@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,10 +8,16 @@ import { Toaster } from "@/components/ui/toaster";
 import Desktop from "@/components/Desktop";
 import LoginForm from "@/components/LoginForm";
 import SignupForm from "@/components/SignupForm";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    const remembered = localStorage.getItem('webOS_rememberMe');
+    return remembered ? JSON.parse(remembered) : false;
+  });
 
   useEffect(() => {
     // Check if user is already logged in
@@ -28,9 +33,19 @@ const Index = () => {
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('webOS_rememberMe', JSON.stringify(rememberMe));
+  }, [rememberMe]);
+
   const handleLogin = (loggedInUsername: string) => {
     setUsername(loggedInUsername);
     setIsLoggedIn(true);
+    
+    // If remember me is not checked, we'll only keep the session until browser close
+    if (!rememberMe) {
+      sessionStorage.setItem('webOS_session', JSON.stringify({ username: loggedInUsername }));
+    }
+    
     toast({
       title: "Logged in successfully",
       description: `Welcome back, ${loggedInUsername}!`,
@@ -38,7 +53,10 @@ const Index = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('webOS_user');
+    if (!rememberMe) {
+      localStorage.removeItem('webOS_user');
+    }
+    sessionStorage.removeItem('webOS_session');
     setIsLoggedIn(false);
     setUsername('');
     toast({
@@ -55,8 +73,11 @@ const Index = () => {
         <Desktop username={username} onLogout={handleLogout} />
       ) : (
         <div className="flex items-center justify-center min-h-screen p-4">
-          <Card className="w-full max-w-md p-6 shadow-xl">
-            <h1 className="mb-6 text-2xl font-bold text-center">WebOS</h1>
+          <Card className="w-full max-w-md p-6 shadow-xl backdrop-blur-sm bg-white/90 dark:bg-gray-800/90 border border-white/20">
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold mb-1">WebOS</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Web-based Operating System</p>
+            </div>
             
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -66,6 +87,21 @@ const Index = () => {
               
               <TabsContent value="login">
                 <LoginForm onLogin={handleLogin} />
+                
+                <div className="flex items-center space-x-2 mt-4">
+                  <Checkbox 
+                    id="rememberMe" 
+                    checked={rememberMe} 
+                    onCheckedChange={(checked) => {
+                      if (typeof checked === 'boolean') {
+                        setRememberMe(checked);
+                      }
+                    }} 
+                  />
+                  <Label htmlFor="rememberMe" className="text-sm text-gray-500 cursor-pointer">
+                    Remember me
+                  </Label>
+                </div>
               </TabsContent>
               
               <TabsContent value="signup">
@@ -75,6 +111,13 @@ const Index = () => {
                 })} />
               </TabsContent>
             </Tabs>
+            
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-center text-gray-500">
+                WebOS 2.0 - A fully functional web-based OS <br/>
+                Running in your browser
+              </p>
+            </div>
           </Card>
         </div>
       )}

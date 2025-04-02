@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, ArrowRight, RefreshCw, Home, Plus, X, Bookmark, ExternalLink, Search } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, RotateCw, Home, Plus, X, Bookmark, Settings, ChevronDown } from 'lucide-react';
 
 interface ChromeBrowserProps {
   userId: string;
@@ -11,413 +14,396 @@ interface ChromeBrowserProps {
 
 interface Tab {
   id: string;
-  url: string;
   title: string;
-  favicon: string;
-  isActive: boolean;
+  url: string;
+  favicon?: string;
 }
+
+interface Bookmark {
+  id: string;
+  title: string;
+  url: string;
+  favicon?: string;
+}
+
+const HomepageContent = () => (
+  <div className="flex flex-col items-center justify-center p-8">
+    <div className="w-full max-w-md mb-8">
+      <div className="flex items-center p-2 bg-white dark:bg-gray-800 rounded-full shadow-md border border-gray-200 dark:border-gray-700">
+        <Search className="w-5 h-5 mr-2 text-gray-500" />
+        <span className="text-gray-400">Search the web</span>
+      </div>
+    </div>
+    
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl">
+      {[
+        { name: 'Google', url: 'https://google.com', color: 'bg-white' },
+        { name: 'YouTube', url: 'https://youtube.com', color: 'bg-red-100' },
+        { name: 'Gmail', url: 'https://gmail.com', color: 'bg-blue-100' },
+        { name: 'Maps', url: 'https://maps.google.com', color: 'bg-green-100' },
+        { name: 'Drive', url: 'https://drive.google.com', color: 'bg-yellow-100' },
+        { name: 'News', url: 'https://news.google.com', color: 'bg-orange-100' },
+        { name: 'Photos', url: 'https://photos.google.com', color: 'bg-purple-100' },
+        { name: 'Translate', url: 'https://translate.google.com', color: 'bg-indigo-100' }
+      ].map((site, index) => (
+        <div 
+          key={index}
+          className={`${site.color} dark:bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition-shadow`}
+        >
+          <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-600 flex items-center justify-center mb-2">
+            {site.name.charAt(0)}
+          </div>
+          <span>{site.name}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const ErrorPage = ({ url }: { url: string }) => (
+  <div className="flex flex-col items-center justify-center h-full p-8">
+    <div className="w-16 h-16 mb-4 text-red-500">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+    <h2 className="text-xl font-bold mb-2">This webpage is not available</h2>
+    <p className="text-gray-600 dark:text-gray-300 mb-4">
+      Cannot access {url}
+    </p>
+    <p className="text-sm text-gray-500 max-w-md text-center">
+      This is a simulated browser. For security and technical reasons, it cannot actually load external websites.
+    </p>
+  </div>
+);
 
 const ChromeBrowser: React.FC<ChromeBrowserProps> = ({ userId }) => {
   const [tabs, setTabs] = useState<Tab[]>(() => {
-    const savedTabs = localStorage.getItem(`webOS_browser_tabs_${userId}`);
-    return savedTabs 
-      ? JSON.parse(savedTabs) 
-      : [{ 
-          id: `tab-${Date.now()}`, 
-          url: 'https://www.google.com', 
-          title: 'Google', 
-          favicon: 'https://www.google.com/favicon.ico',
-          isActive: true 
-        }];
+    const savedTabs = localStorage.getItem(`webOS_chrome_tabs_${userId}`);
+    if (savedTabs) {
+      return JSON.parse(savedTabs);
+    }
+    return [
+      { id: 'tab-1', title: 'New Tab', url: 'chrome://newtab', favicon: '' }
+    ];
   });
   
-  const [currentUrl, setCurrentUrl] = useState('https://www.google.com');
-  const [isLoading, setIsLoading] = useState(false);
-  const [history, setHistory] = useState<string[]>(['https://www.google.com']);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const [bookmarks, setBookmarks] = useState<{title: string, url: string}[]>(() => {
-    const savedBookmarks = localStorage.getItem(`webOS_browser_bookmarks_${userId}`);
-    return savedBookmarks ? JSON.parse(savedBookmarks) : [];
+  const [activeTabId, setActiveTabId] = useState<string>(tabs[0]?.id || 'tab-1');
+  const [currentUrl, setCurrentUrl] = useState<string>(tabs[0]?.url || 'chrome://newtab');
+  const [urlInput, setUrlInput] = useState<string>(currentUrl);
+  const [isBookmarkDialogOpen, setIsBookmarkDialogOpen] = useState(false);
+  const [bookmarkTitle, setBookmarkTitle] = useState('');
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(() => {
+    const savedBookmarks = localStorage.getItem(`webOS_chrome_bookmarks_${userId}`);
+    if (savedBookmarks) {
+      return JSON.parse(savedBookmarks);
+    }
+    return [
+      { id: 'bm-1', title: 'Google', url: 'https://google.com', favicon: '' },
+      { id: 'bm-2', title: 'YouTube', url: 'https://youtube.com', favicon: '' },
+      { id: 'bm-3', title: 'GitHub', url: 'https://github.com', favicon: '' }
+    ];
   });
+  const [showBookmarks, setShowBookmarks] = useState(false);
   
+  // Save tabs and bookmarks to localStorage
   useEffect(() => {
-    localStorage.setItem(`webOS_browser_tabs_${userId}`, JSON.stringify(tabs));
+    localStorage.setItem(`webOS_chrome_tabs_${userId}`, JSON.stringify(tabs));
   }, [tabs, userId]);
   
   useEffect(() => {
-    localStorage.setItem(`webOS_browser_bookmarks_${userId}`, JSON.stringify(bookmarks));
+    localStorage.setItem(`webOS_chrome_bookmarks_${userId}`, JSON.stringify(bookmarks));
   }, [bookmarks, userId]);
-
-  const getActiveTab = () => {
-    return tabs.find(tab => tab.isActive) || tabs[0];
-  };
-
-  const handleNewTab = () => {
-    const newTab: Tab = {
-      id: `tab-${Date.now()}`,
-      url: 'https://www.google.com',
-      title: 'New Tab',
-      favicon: '',
-      isActive: true
-    };
-    
-    setTabs(prevTabs => prevTabs.map(tab => ({
-      ...tab,
-      isActive: false
-    })).concat(newTab));
-    
-    setCurrentUrl('https://www.google.com');
-    setHistory(['https://www.google.com']);
-    setHistoryIndex(0);
-  };
   
-  const switchTab = (tabId: string) => {
-    const updatedTabs = tabs.map(tab => ({
-      ...tab,
-      isActive: tab.id === tabId
-    }));
-    
-    setTabs(updatedTabs);
-    
-    const activeTab = updatedTabs.find(tab => tab.isActive);
+  // Update URL input when active tab changes
+  useEffect(() => {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
     if (activeTab) {
       setCurrentUrl(activeTab.url);
+      setUrlInput(activeTab.url);
     }
+  }, [activeTabId, tabs]);
+  
+  const addNewTab = () => {
+    const newTab: Tab = {
+      id: `tab-${Date.now()}`,
+      title: 'New Tab',
+      url: 'chrome://newtab',
+      favicon: ''
+    };
+    
+    setTabs([...tabs, newTab]);
+    setActiveTabId(newTab.id);
   };
   
-  const closeTab = (tabId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
+  const closeTab = (tabId: string) => {
     // Don't close if it's the last tab
-    if (tabs.length === 1) {
+    if (tabs.length <= 1) {
       return;
     }
     
     const tabIndex = tabs.findIndex(tab => tab.id === tabId);
-    const isActive = tabs[tabIndex].isActive;
+    const newTabs = tabs.filter(tab => tab.id !== tabId);
     
-    const filteredTabs = tabs.filter(tab => tab.id !== tabId);
+    setTabs(newTabs);
     
-    // If we're closing an active tab, activate another one
-    if (isActive && filteredTabs.length > 0) {
-      const newActiveIndex = Math.min(tabIndex, filteredTabs.length - 1);
-      filteredTabs[newActiveIndex].isActive = true;
-      
-      setCurrentUrl(filteredTabs[newActiveIndex].url);
+    // If we closed the active tab, switch to the next available one
+    if (tabId === activeTabId) {
+      const newActiveIndex = tabIndex === 0 ? 0 : tabIndex - 1;
+      setActiveTabId(newTabs[newActiveIndex].id);
     }
-    
-    setTabs(filteredTabs);
   };
   
-  const navigate = (url: string) => {
-    // Add http:// if not present
+  const navigateTo = (url: string) => {
     let processedUrl = url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // Check if it's a search term
-      if (url.includes(' ') || !url.includes('.')) {
-        processedUrl = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
-      } else {
-        processedUrl = `https://${url}`;
-      }
+    
+    // Add https:// if no protocol specified
+    if (url !== 'chrome://newtab' && !url.startsWith('http://') && !url.startsWith('https://')) {
+      processedUrl = `https://${url}`;
     }
     
-    setIsLoading(true);
+    // Update the active tab
+    const updatedTabs = tabs.map(tab => 
+      tab.id === activeTabId 
+        ? { 
+            ...tab, 
+            url: processedUrl,
+            title: processedUrl === 'chrome://newtab' 
+              ? 'New Tab' 
+              : processedUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]
+          } 
+        : tab
+    );
     
-    // Simulated loading
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Update active tab
-      const activeTab = getActiveTab();
-      if (activeTab) {
-        const updatedTabs = tabs.map(tab => 
-          tab.id === activeTab.id 
-            ? { ...tab, url: processedUrl, title: getDomainFromUrl(processedUrl) } 
-            : tab
-        );
-        setTabs(updatedTabs);
-      }
-      
-      // Update URL and history
-      setCurrentUrl(processedUrl);
-      
-      // Add to history if navigating to a new URL
-      if (historyIndex === history.length - 1) {
-        setHistory([...history, processedUrl]);
-        setHistoryIndex(history.length);
-      } else {
-        // User navigated from a previous point in history
-        const newHistory = history.slice(0, historyIndex + 1).concat(processedUrl);
-        setHistory(newHistory);
-        setHistoryIndex(historyIndex + 1);
-      }
-    }, 800);
-  };
-  
-  const goBack = () => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      
-      const previousUrl = history[newIndex];
-      setCurrentUrl(previousUrl);
-      
-      // Update active tab
-      const activeTab = getActiveTab();
-      if (activeTab) {
-        const updatedTabs = tabs.map(tab => 
-          tab.id === activeTab.id 
-            ? { ...tab, url: previousUrl, title: getDomainFromUrl(previousUrl) } 
-            : tab
-        );
-        setTabs(updatedTabs);
-      }
-    }
-  };
-  
-  const goForward = () => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      
-      const nextUrl = history[newIndex];
-      setCurrentUrl(nextUrl);
-      
-      // Update active tab
-      const activeTab = getActiveTab();
-      if (activeTab) {
-        const updatedTabs = tabs.map(tab => 
-          tab.id === activeTab.id 
-            ? { ...tab, url: nextUrl, title: getDomainFromUrl(nextUrl) } 
-            : tab
-        );
-        setTabs(updatedTabs);
-      }
-    }
-  };
-  
-  const refresh = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Page refreshed",
-        description: "The web page has been refreshed",
-      });
-    }, 800);
-  };
-  
-  const addBookmark = () => {
-    const activeTab = getActiveTab();
-    if (activeTab) {
-      const newBookmark = {
-        title: activeTab.title,
-        url: activeTab.url
-      };
-      
-      // Check if bookmark already exists
-      const exists = bookmarks.some(bm => bm.url === activeTab.url);
-      if (!exists) {
-        setBookmarks([...bookmarks, newBookmark]);
-        toast({
-          title: "Bookmark added",
-          description: "Page has been added to bookmarks",
-        });
-      } else {
-        toast({
-          title: "Bookmark exists",
-          description: "This page is already in your bookmarks",
-          variant: "destructive"
-        });
-      }
-    }
-  };
-  
-  const navigateToHome = () => {
-    navigate('https://www.google.com');
+    setTabs(updatedTabs);
+    setCurrentUrl(processedUrl);
+    setUrlInput(processedUrl);
   };
   
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(currentUrl);
+    navigateTo(urlInput);
   };
   
-  const getDomainFromUrl = (url: string) => {
-    try {
-      const hostname = new URL(url).hostname;
-      return hostname.replace('www.', '');
-    } catch (error) {
-      return url;
-    }
+  const addBookmark = () => {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    if (!activeTab || activeTab.url === 'chrome://newtab') return;
+    
+    setBookmarkTitle(activeTab.title);
+    setIsBookmarkDialogOpen(true);
   };
+  
+  const saveBookmark = () => {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    if (!activeTab || activeTab.url === 'chrome://newtab') return;
+    
+    const newBookmark: Bookmark = {
+      id: `bm-${Date.now()}`,
+      title: bookmarkTitle || activeTab.title,
+      url: activeTab.url,
+      favicon: activeTab.favicon
+    };
+    
+    setBookmarks([...bookmarks, newBookmark]);
+    setIsBookmarkDialogOpen(false);
+    
+    toast({
+      title: "Bookmark added",
+      description: `"${newBookmark.title}" has been added to your bookmarks`,
+    });
+  };
+  
+  const deleteBookmark = (id: string) => {
+    setBookmarks(bookmarks.filter(bookmark => bookmark.id !== id));
+    
+    toast({
+      title: "Bookmark removed",
+      description: "The bookmark has been removed",
+    });
+  };
+  
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
   
   return (
-    <div className="flex flex-col h-full">
-      {/* Chrome Browser UI */}
-      <div className="flex flex-col bg-gray-100 dark:bg-gray-800">
-        {/* Tab Bar */}
-        <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 overflow-x-auto">
-          {tabs.map(tab => (
-            <div 
-              key={tab.id}
-              onClick={() => switchTab(tab.id)}
-              className={`flex items-center px-3 py-1 max-w-[200px] rounded-t-md mr-1 text-sm cursor-pointer ${
-                tab.isActive 
-                  ? 'bg-white dark:bg-gray-800 text-black dark:text-white' 
-                  : 'bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-500'
-              }`}
-            >
-              {tab.favicon && (
-                <img 
-                  src={tab.favicon} 
-                  alt="" 
-                  className="w-4 h-4 mr-2" 
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              )}
-              <span className="truncate">{tab.title}</span>
-              <X 
-                className="w-4 h-4 ml-2 opacity-60 hover:opacity-100" 
-                onClick={(e) => closeTab(tab.id, e)}
-              />
-            </div>
-          ))}
+    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
+      {/* Browser Chrome */}
+      <div className="flex items-center p-2 bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700">
+        {/* Navigation Buttons */}
+        <div className="flex space-x-1 mr-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-7 w-7 rounded-full shrink-0"
-            onClick={handleNewTab}
+            className="h-8 w-8"
+            onClick={() => navigateTo('chrome://newtab')}
           >
-            <Plus className="h-4 w-4" />
+            <Home className="h-4 w-4" />
           </Button>
         </div>
         
-        {/* Navigation Bar */}
-        <div className="flex items-center p-1 bg-white dark:bg-gray-800 border-b dark:border-gray-700">
-          <div className="flex items-center space-x-1 mr-2">
+        {/* URL Bar */}
+        <form onSubmit={handleUrlSubmit} className="flex-1 mr-2">
+          <div className="relative">
+            <Input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              className="h-8 pr-10 bg-white dark:bg-gray-700"
+              placeholder="Search Google or enter website name"
+            />
             <Button 
-              variant="ghost" 
+              type="submit"
               size="icon" 
-              className="h-8 w-8 rounded-full"
-              onClick={goBack}
-              disabled={historyIndex <= 0}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            
-            <Button 
               variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-full"
-              onClick={goForward}
-              disabled={historyIndex >= history.length - 1}
+              className="absolute right-0 top-0 h-8 w-8"
             >
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className={`h-8 w-8 rounded-full ${isLoading ? 'animate-spin' : ''}`}
-              onClick={refresh}
-            >
-              <RotateCw className="h-4 w-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-full"
-              onClick={navigateToHome}
-            >
-              <Home className="h-4 w-4" />
+              <Search className="h-4 w-4" />
             </Button>
           </div>
-          
-          <form onSubmit={handleUrlSubmit} className="flex-grow flex items-center">
-            <div className="flex-grow relative">
-              <Input
-                type="text"
-                value={currentUrl}
-                onChange={(e) => setCurrentUrl(e.target.value)}
-                className="h-9 pr-10 bg-gray-100 dark:bg-gray-700 focus:ring-1 focus:ring-blue-500"
-                placeholder="Search Google or type a URL"
-              />
-              {isLoading && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-                </div>
-              )}
-            </div>
-          </form>
-          
-          <div className="flex items-center ml-2 space-x-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-full"
-              onClick={addBookmark}
-            >
-              <Bookmark className="h-4 w-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-full"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 rounded-full"
-            >
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </div>
+        </form>
+        
+        {/* Action Buttons */}
+        <div className="flex space-x-1">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={addBookmark}
+          >
+            <Bookmark className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={() => setShowBookmarks(!showBookmarks)}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       
+      {/* Tabs */}
+      <div className="flex bg-gray-300 dark:bg-gray-700 overflow-x-auto">
+        {tabs.map(tab => (
+          <div 
+            key={tab.id}
+            className={`flex items-center min-w-[180px] max-w-[240px] h-9 pl-3 pr-1 ${
+              tab.id === activeTabId 
+                ? 'bg-gray-100 dark:bg-gray-900' 
+                : 'bg-gray-200 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-600'
+            } rounded-t-md cursor-pointer border-r border-gray-300 dark:border-gray-600`}
+            onClick={() => setActiveTabId(tab.id)}
+          >
+            <div className="w-4 h-4 mr-2 bg-gray-400 rounded-full flex-shrink-0" />
+            <span className="truncate flex-1 text-sm">{tab.title}</span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 ml-1 hover:bg-gray-200 dark:hover:bg-gray-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(tab.id);
+              }}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 flex-shrink-0"
+          onClick={addNewTab}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+      
       {/* Browser Content */}
-      <div className="flex-grow bg-white dark:bg-gray-900 p-4 overflow-auto">
-        <div className="flex flex-col items-center justify-center h-full text-center">
-          <div className="text-6xl font-bold mb-8 text-blue-500">G</div>
-          <h1 className="text-2xl mb-4">Welcome to Chrome Browser</h1>
-          <p className="mb-6 text-gray-500 max-w-md">
-            This is a simulated Chrome browser interface. For security reasons, 
-            this app cannot actually load external web content in this environment.
-          </p>
-          <div className="max-w-lg w-full">
-            <Input
-              type="text"
-              placeholder="Search Google or type a URL"
-              className="h-12 text-lg"
-              onKeyDown={(e) => e.key === 'Enter' && navigate(e.currentTarget.value)}
-            />
+      <div className="flex-1 overflow-hidden relative bg-white dark:bg-gray-800">
+        {/* Bookmarks Bar (conditional) */}
+        {showBookmarks && (
+          <div className="flex items-center overflow-x-auto p-1 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            {bookmarks.map(bookmark => (
+              <div 
+                key={bookmark.id}
+                className="flex items-center px-3 py-1 mr-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer group whitespace-nowrap"
+                onClick={() => navigateTo(bookmark.url)}
+              >
+                <div className="w-4 h-4 mr-2 bg-gray-400 rounded-full flex-shrink-0" />
+                <span className="text-sm">{bookmark.title}</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5 ml-1 opacity-0 group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteBookmark(bookmark.id);
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Web Content */}
+        <ScrollArea className="h-full">
+          {activeTab?.url === 'chrome://newtab' ? (
+            <HomepageContent />
+          ) : (
+            <ErrorPage url={activeTab?.url || ''} />
+          )}
+        </ScrollArea>
+      </div>
+      
+      {/* Add Bookmark Dialog */}
+      <Dialog open={isBookmarkDialogOpen} onOpenChange={setIsBookmarkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Bookmark</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              <Input 
+                value={bookmarkTitle}
+                onChange={(e) => setBookmarkTitle(e.target.value)}
+                placeholder="Bookmark name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">URL</label>
+              <Input 
+                value={activeTab?.url}
+                readOnly
+                className="bg-gray-100 dark:bg-gray-800"
+              />
+            </div>
           </div>
           
-          {bookmarks.length > 0 && (
-            <div className="mt-8 grid grid-cols-4 gap-4 max-w-lg">
-              {bookmarks.slice(0, 8).map((bookmark, index) => (
-                <div 
-                  key={index} 
-                  className="flex flex-col items-center p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer"
-                  onClick={() => navigate(bookmark.url)}
-                >
-                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full mb-2 flex items-center justify-center text-xl font-bold">
-                    {bookmark.title.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-sm truncate w-full text-center">{bookmark.title}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBookmarkDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveBookmark}>
+              Add Bookmark
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

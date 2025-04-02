@@ -10,7 +10,8 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { 
   File, Folder, Settings, Code, Terminal, LogOut, Menu, 
   Calendar, StickyNote, Clock, Battery, Wifi, Volume, 
-  Search, Bell, Moon, Sun, Chrome, Wallpaper
+  Search, Bell, Moon, Sun, Chrome, Wallpaper,
+  Cloud, Maximize2
 } from "lucide-react";
 import FileExplorer from "@/components/FileExplorer";
 import CodeEditor from "@/components/CodeEditor";
@@ -19,6 +20,8 @@ import CalendarApp from "@/components/CalendarApp";
 import NotesApp from "@/components/NotesApp";
 import ChromeBrowser from "@/components/ChromeBrowser";
 import AppWindow from "@/components/AppWindow";
+import WeatherWidget from "@/components/WeatherWidget";
+import NotificationCenter from "@/components/NotificationCenter";
 
 interface DesktopProps {
   username: string;
@@ -48,8 +51,8 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
     return saved || 'from-blue-50 to-indigo-100';
   });
   const [customWallpaperUrl, setCustomWallpaperUrl] = useState('');
+  const [showDesktopWidgets, setShowDesktopWidgets] = useState(true);
   
-  // Load user data from localStorage
   const userData = JSON.parse(localStorage.getItem('webOS_user') || '{}');
   const userId = userData.id;
   
@@ -59,7 +62,16 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
     { id: 'green', name: 'Forest Green', url: 'from-green-50 to-teal-100' },
     { id: 'sunset', name: 'Sunset Orange', url: 'from-red-50 to-orange-100' },
     { id: 'gradient1', name: 'Ocean Blue', url: 'from-blue-400 to-indigo-600' },
-    { id: 'gradient2', name: 'Emerald', url: 'from-emerald-400 to-teal-600' }
+    { id: 'gradient2', name: 'Emerald', url: 'from-emerald-400 to-teal-600' },
+    { id: 'dark1', name: 'Dark Mode', url: 'from-gray-900 to-black' },
+    { id: 'light1', name: 'Light Mode', url: 'from-gray-100 to-white' }
+  ];
+  
+  const additionalWallpapers = [
+    { id: 'mountain', name: 'Mountains', url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&auto=format' },
+    { id: 'beach', name: 'Beach', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format' },
+    { id: 'forest', name: 'Forest', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&auto=format' },
+    { id: 'city', name: 'City', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=1200&auto=format' }
   ];
   
   useEffect(() => {
@@ -83,6 +95,20 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
     localStorage.setItem('webOS_wallpaper', currentWallpaper);
   }, [currentWallpaper]);
   
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (window && (window as any).webOSNotifications) {
+        (window as any).webOSNotifications.add({
+          title: 'Welcome to WebOS',
+          message: `Hi ${username}! Welcome to your personalized WebOS experience.`,
+          type: 'info'
+        });
+      }
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [username]);
+  
   const openApp = (appType: string) => {
     const newWindow = {
       id: `window-${Date.now()}`,
@@ -98,8 +124,15 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
     setActiveWindowId(newWindow.id);
     setIsMenuOpen(false);
     
-    // Close search when opening an app
     setIsSearchOpen(false);
+    
+    if (window && (window as any).webOSNotifications) {
+      (window as any).webOSNotifications.add({
+        title: 'Application Launched',
+        message: `${getAppTitle(appType)} has been opened`,
+        type: 'success'
+      });
+    }
   };
   
   const getAppTitle = (appType: string) => {
@@ -111,6 +144,7 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
       case 'calendar': return 'Calendar';
       case 'notes': return 'Notes';
       case 'browser': return 'Chrome';
+      case 'weather': return 'Weather';
       default: return 'Application';
     }
   };
@@ -124,6 +158,7 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
       case 'calendar': return { width: 800, height: 600 };
       case 'notes': return { width: 800, height: 600 };
       case 'browser': return { width: 1000, height: 700 };
+      case 'weather': return { width: 400, height: 300 };
       default: return { width: 700, height: 500 };
     }
   };
@@ -153,7 +188,6 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
   
   const focusWindow = (id: string) => {
     setActiveWindowId(id);
-    // Move window to end of array to bring it to the front
     setOpenWindows([
       ...openWindows.filter(window => window.id !== id),
       openWindows.find(window => window.id === id)!
@@ -165,7 +199,6 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
     
     if (query.trim() === '') return;
     
-    // App search
     const appCommands = [
       { name: 'Files', action: () => openApp('fileExplorer') },
       { name: 'Code Editor', action: () => openApp('codeEditor') },
@@ -174,12 +207,13 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
       { name: 'Calendar', action: () => openApp('calendar') },
       { name: 'Notes', action: () => openApp('notes') },
       { name: 'Chrome', action: () => openApp('browser') },
+      { name: 'Weather', action: () => openApp('weather') },
       { name: 'Dark Mode', action: () => setIsDarkMode(!isDarkMode) },
       { name: 'Change Wallpaper', action: () => setIsWallpaperDialogOpen(true) },
+      { name: 'Toggle Widgets', action: () => setShowDesktopWidgets(!showDesktopWidgets) },
       { name: 'Log Out', action: onLogout }
     ];
     
-    // Check if there's an exact match
     const matchedCommand = appCommands.find(cmd => 
       cmd.name.toLowerCase() === query.toLowerCase()
     );
@@ -219,6 +253,22 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
   const isWallpaperGradient = () => {
     return currentWallpaper.includes('from-') && currentWallpaper.includes('to-');
   };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        toast({
+          title: "Fullscreen error",
+          description: `Error attempting to enable fullscreen: ${err.message}`,
+          variant: "destructive"
+        });
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
   
   const renderAppContent = (window: any) => {
     switch (window.type) {
@@ -234,6 +284,8 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         return <NotesApp userId={userId} />;
       case 'browser':
         return <ChromeBrowser userId={userId} />;
+      case 'weather':
+        return <WeatherWidget userId={userId} />;
       case 'settings':
         return (
           <div className="p-4 h-full overflow-auto">
@@ -273,6 +325,32 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
                 </div>
               </div>
               
+              <div className="flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center">
+                  <Cloud className="h-5 w-5 mr-2" />
+                  <span>Desktop Widgets</span>
+                </div>
+                <Button 
+                  variant={showDesktopWidgets ? "default" : "outline"} 
+                  onClick={() => setShowDesktopWidgets(!showDesktopWidgets)}
+                >
+                  {showDesktopWidgets ? "Shown" : "Hidden"}
+                </Button>
+              </div>
+              
+              <div className="flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                <div className="flex items-center">
+                  <Maximize2 className="h-5 w-5 mr-2" />
+                  <span>Fullscreen Mode</span>
+                </div>
+                <Button 
+                  variant="outline"
+                  onClick={toggleFullscreen}
+                >
+                  Toggle Fullscreen
+                </Button>
+              </div>
+              
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 <h3 className="font-medium mb-2">Account</h3>
                 <p className="mb-2">Username: {username}</p>
@@ -282,7 +360,7 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
               <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 <h3 className="font-medium mb-2">About WebOS</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Version 1.2.0<br />
+                  Version 2.0.0<br />
                   A web-based operating system experience<br />
                   Running in your browser
                 </p>
@@ -304,9 +382,13 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
       }`}
       style={!isWallpaperGradient() ? { backgroundImage: `url(${currentWallpaper})` } : {}}
     >
-      {/* Desktop */}
       <div className="absolute inset-0 p-4 pt-8">
-        {/* Windows */}
+        {showDesktopWidgets && (
+          <div className="absolute top-16 right-4 w-64 space-y-4 z-10">
+            <WeatherWidget userId={userId} />
+          </div>
+        )}
+      
         {openWindows.map((window) => (
           <AppWindow
             key={window.id}
@@ -322,7 +404,6 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         ))}
       </div>
       
-      {/* Top Menu Bar - macOS style */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between h-7 px-4 bg-white/80 backdrop-blur-md dark:bg-black/60 border-b border-gray-200/50 dark:border-gray-700/50 z-50">
         <div className="flex items-center space-x-4">
           <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -356,6 +437,10 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
                 <Button variant="ghost" className="justify-start" onClick={() => openApp('browser')}>
                   <Chrome className="w-4 h-4 mr-2" />
                   Chrome
+                </Button>
+                <Button variant="ghost" className="justify-start" onClick={() => openApp('weather')}>
+                  <Cloud className="w-4 h-4 mr-2" />
+                  Weather
                 </Button>
                 <Button variant="ghost" className="justify-start" onClick={() => openApp('settings')}>
                   <Settings className="w-4 h-4 mr-2" />
@@ -396,7 +481,6 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Search bar */}
           <div className="relative">
             <Button 
               variant="ghost" 
@@ -448,6 +532,10 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
                         <Chrome className="mr-2 h-4 w-4" />
                         <span>Chrome</span>
                       </CommandItem>
+                      <CommandItem onSelect={() => openApp('weather')}>
+                        <Cloud className="mr-2 h-4 w-4" />
+                        <span>Weather</span>
+                      </CommandItem>
                     </CommandGroup>
                     <CommandGroup heading="Settings">
                       <CommandItem onSelect={() => openApp('settings')}>
@@ -466,6 +554,14 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
                         <Wallpaper className="mr-2 h-4 w-4" />
                         <span>Change Wallpaper</span>
                       </CommandItem>
+                      <CommandItem onSelect={toggleFullscreen}>
+                        <Maximize2 className="mr-2 h-4 w-4" />
+                        <span>Toggle Fullscreen</span>
+                      </CommandItem>
+                      <CommandItem onSelect={() => setShowDesktopWidgets(!showDesktopWidgets)}>
+                        <Cloud className="mr-2 h-4 w-4" />
+                        <span>Toggle Widgets</span>
+                      </CommandItem>
                       <CommandItem onSelect={onLogout} className="text-red-500">
                         <LogOut className="mr-2 h-4 w-4" />
                         <span>Log Out</span>
@@ -476,6 +572,8 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
               </div>
             )}
           </div>
+          
+          <NotificationCenter userId={userId} />
           
           <div className="flex items-center space-x-2">
             <Wifi className="h-4 w-4 text-gray-600 dark:text-gray-300" />
@@ -489,7 +587,6 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         </div>
       </div>
       
-      {/* Dock - macOS style */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex items-center p-1 bg-white/20 backdrop-blur-lg dark:bg-black/30 rounded-2xl border border-white/30 dark:border-white/10 shadow-lg">
         <DockIcon icon={<Folder />} label="Files" onClick={() => openApp('fileExplorer')} />
         <DockIcon icon={<Code />} label="Code" onClick={() => openApp('codeEditor')} />
@@ -497,11 +594,11 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         <DockIcon icon={<Calendar />} label="Calendar" onClick={() => openApp('calendar')} />
         <DockIcon icon={<StickyNote />} label="Notes" onClick={() => openApp('notes')} />
         <DockIcon icon={<Chrome />} label="Chrome" onClick={() => openApp('browser')} />
+        <DockIcon icon={<Cloud />} label="Weather" onClick={() => openApp('weather')} />
         <div className="h-8 w-px bg-gray-300/30 dark:bg-gray-600/30 mx-1"></div>
         <DockIcon icon={<Settings />} label="Settings" onClick={() => openApp('settings')} />
       </div>
       
-      {/* Wallpaper Dialog */}
       <Dialog open={isWallpaperDialogOpen} onOpenChange={setIsWallpaperDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -510,8 +607,9 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
           
           <div className="p-4">
             <Tabs defaultValue="preset" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="preset">Preset Wallpapers</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="preset">Gradients</TabsTrigger>
+                <TabsTrigger value="images">Images</TabsTrigger>
                 <TabsTrigger value="custom">Custom URL</TabsTrigger>
               </TabsList>
               
@@ -523,6 +621,25 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
                       className={`h-24 rounded-md cursor-pointer bg-gradient-to-br ${option.url} border-2 ${
                         currentWallpaper === option.url ? 'border-blue-500' : 'border-transparent'
                       }`}
+                      onClick={() => applyWallpaper(option)}
+                    >
+                      <div className="h-full w-full flex items-end justify-start p-2">
+                        <span className="text-xs bg-black/30 text-white px-1.5 py-0.5 rounded">
+                          {option.name}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3" data-value="images">
+                  {additionalWallpapers.map((option) => (
+                    <div 
+                      key={option.id}
+                      className={`h-36 rounded-md cursor-pointer bg-cover bg-center border-2 ${
+                        currentWallpaper === option.url ? 'border-blue-500' : 'border-transparent'
+                      }`}
+                      style={{ backgroundImage: `url(${option.url})` }}
                       onClick={() => applyWallpaper(option)}
                     >
                       <div className="h-full w-full flex items-end justify-start p-2">
@@ -555,7 +672,6 @@ const Desktop: React.FC<DesktopProps> = ({ username, onLogout }) => {
         </DialogContent>
       </Dialog>
       
-      {/* Global click handler to close search when clicking outside */}
       {isSearchOpen && (
         <div 
           className="fixed inset-0 z-40" 
