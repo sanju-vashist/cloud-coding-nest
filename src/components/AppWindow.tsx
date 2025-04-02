@@ -46,10 +46,10 @@ const AppWindow: React.FC<AppWindowProps> = ({
     if (window.maximized) {
       // Store previous position and size for restoring later
       setPosition({ x: 0, y: 0 });
-      // Use global window object for innerWidth/innerHeight
+      // Use window object for innerWidth/innerHeight
       setSize({ 
-        width: global.window?.innerWidth || document.documentElement.clientWidth, 
-        height: global.window?.innerHeight || document.documentElement.clientHeight 
+        width: window.innerWidth || document.documentElement.clientWidth, 
+        height: window.innerHeight || document.documentElement.clientHeight 
       });
     }
   }, [window.maximized]);
@@ -76,8 +76,8 @@ const AppWindow: React.FC<AppWindowProps> = ({
       const newY = e.clientY - dragOffset.y;
       
       // Constrain to viewport
-      const maxX = global.window?.innerWidth - size.width || document.documentElement.clientWidth - size.width;
-      const maxY = global.window?.innerHeight - 40 || document.documentElement.clientHeight - 40; // Leave space for taskbar
+      const maxX = window.innerWidth - size.width || document.documentElement.clientWidth - size.width;
+      const maxY = window.innerHeight - 40 || document.documentElement.clientHeight - 40; // Leave space for taskbar
       
       setPosition({
         x: Math.max(0, Math.min(newX, maxX)),

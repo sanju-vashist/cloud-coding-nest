@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from "@/hooks/use-toast";
 
@@ -53,7 +52,6 @@ const TerminalEmulator: React.FC<TerminalEmulatorProps> = ({ userId }) => {
   }, [history]);
   
   useEffect(() => {
-    // Focus the input when the component mounts
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -103,7 +101,6 @@ const TerminalEmulator: React.FC<TerminalEmulatorProps> = ({ userId }) => {
     
     if (!lastPart) return;
     
-    // Get current directory's contents
     const dirParts = currentDirectory.split('/').filter(Boolean);
     let currentObj = fileSystem;
     for (const part of dirParts) {
@@ -114,17 +111,14 @@ const TerminalEmulator: React.FC<TerminalEmulatorProps> = ({ userId }) => {
       }
     }
     
-    // Find matching items
     const matches = Object.keys(currentObj).filter(item => 
       item.startsWith(lastPart)
     );
     
     if (matches.length === 1) {
-      // Complete the input
       parts[parts.length - 1] = matches[0];
       setInput(parts.join(' '));
     } else if (matches.length > 1) {
-      // Display possible completions
       const output = `\nPossible completions: ${matches.join('  ')}`;
       setHistory([...history, { command: '', output }]);
     }
@@ -151,13 +145,11 @@ const TerminalEmulator: React.FC<TerminalEmulatorProps> = ({ userId }) => {
     const args = trimmedInput.split(' ');
     const command = args[0].toLowerCase();
     
-    // Add to command history
     setCommandHistory([...commandHistory, trimmedInput]);
     setHistoryIndex(-1);
     
     let output = '';
     
-    // Process command
     switch (command) {
       case 'help':
         output = `
@@ -190,7 +182,6 @@ Available commands:
         break;
         
       case 'ls':
-        // Get directory contents
         const dirContents = getPathContents(currentDirectory);
         if (!dirContents) {
           output = `ls: cannot access '${currentDirectory}': No such directory`;
@@ -242,7 +233,6 @@ Available commands:
           setCurrentDirectory('/home/user');
           output = '';
         } else if (args[1] === '..') {
-          // Go up one directory
           const parts = currentDirectory.split('/').filter(Boolean);
           if (parts.length > 0) {
             parts.pop();
@@ -251,7 +241,6 @@ Available commands:
           }
           output = '';
         } else if (args[1].startsWith('/')) {
-          // Absolute path
           const targetDir = getPathContents(args[1]);
           if (targetDir) {
             setCurrentDirectory(args[1]);
@@ -260,7 +249,6 @@ Available commands:
             output = `cd: ${args[1]}: No such directory`;
           }
         } else {
-          // Relative path
           const targetPath = `${currentDirectory}/${args[1]}`;
           const targetDir = getPathContents(targetPath);
           if (targetDir) {
@@ -297,7 +285,6 @@ Available commands:
             break;
           }
           
-          // Create the directory
           parentDir[newDirName] = { type: 'directory', content: {} };
           setFileSystem({ ...fileSystem });
           
@@ -330,7 +317,6 @@ Available commands:
             break;
           }
           
-          // Create the file if it doesn't exist
           if (!parentDir[newFileName]) {
             parentDir[newFileName] = { type: 'file', content: '' };
             setFileSystem({ ...fileSystem });
@@ -395,7 +381,6 @@ Available commands:
             break;
           }
           
-          // Remove the file or directory
           delete parentDir[targetFileName];
           setFileSystem({ ...fileSystem });
           
